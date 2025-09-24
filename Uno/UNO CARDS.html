@@ -1,0 +1,311 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <link rel="icon" href="/Logo.jpg">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Soloact - Featuring Game</title>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>UNO Sliding Cards</title>
+<style>
+body { font-family:sans-serif; background:#2c3e50; color:white; text-align:center; margin:0; padding:0;}
+#discard-pile, #player-hand, #players { margin:20px; position:relative; height:150px; }
+.card { display:inline-block; width:60px; height:90px; margin:5px; border-radius:10px; line-height:90px; font-weight:bold; cursor:pointer; position:relative; }
+.red{ background:#e74c3c; color:white; } 
+.blue{ background:#3498db; color:white; } 
+.green{ background:#2ecc71; color:white; } 
+.yellow{ background:#f1c40f; color:black; }
+.wild{ background:black; color:white; }
+#turn { margin:10px; font-size:18px; }
+#timer { margin:10px; font-size:18px; color:#f39c12; }
+#unoBtn { padding:10px 20px; font-size:16px; margin:10px; }
+</style>
+</head>
+<body>
+<h1>UNO Sliding Cards</h1>
+<div id="turn">Current Turn: Player 0 (You)</div>
+<div id="timer">Time Left: 10s</div>
+<div id="discard-pile">Discard Pile:</div>
+<div id="players"></div>
+<div id="player-hand">Your Hand:</div>
+<button onclick="drawCard()">Draw Card</button>
+<button id="unoBtn" onclick="pressUno()" disabled>Press UNO!</button>
+
+<!-- Sounds -->
+<audio id="bgMusic" src="https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3" loop autoplay></audio>
+<audio id="drawSound" src="https://www.soundjay.com/button/beep-07.wav"></audio>
+<audio id="playSound" src="https://www.soundjay.com/button/button-16.wav"></audio>
+<audio id="unoSound" src="https://www.soundjay.com/button/beep-10.wav"></audio>
+
+<script>
+const colors=['red','blue','green','yellow'];
+const specialCards=['skip','reverse','draw2'];
+let deck=[], players=[[],[],[],[]], discardPile=[], currentPlayer=0, direction=1, pendingDraw=0, timer=10, turnInterval;
+
+const drawSound=document.getElementById('drawSound');
+const playSound=document.getElementById('playSound');
+const unoSound=document.getElementById('unoSound');
+const bgMusic=document.getElementById('bgMusic');
+
+function initDeck(){
+  deck=[];
+  for(let color of colors){
+    for(let i=0;i<=9;i++){
+      deck.push({color,number:i});
+      if(i!==0) deck.push({color,number:i});
+    }
+    for(let sp of specialCards){ deck.push({color,type:sp}); deck.push({color,type:sp}); }
+  }
+  for(let i=0;i<4;i++){ deck.push({color:'wild',type:'wild'}); deck.push({color:'wild',type:'draw4'}); }
+  shuffle(deck);
+}
+
+function shuffle(array){for(let i=array.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[array[i],array[j]]=[array[j],array[i]];}}
+
+function dealCards(){for(let i=0;i<7;i++) for(let p=0;p<4;p++) players[p].push(deck.pop()); discardPile.push(deck.pop());}
+
+function renderPlayers(){const div=document.getElementById('players'); div.innerHTML=''; for(let i=1;i<4;i++) div.innerHTML+=`AI Player ${i}: ${players[i].length} cards<br>`;}
+
+function renderDiscard(){
+  const div=document.getElementById('discard-pile'); div.innerHTML='Discard Pile: ';
+  if(discardPile.length>0){
+    const top=discardPile[discardPile.length-1];
+    const cardDiv=document.createElement('div');
+    cardDiv.className='card '+top.color;
+    cardDiv.textContent=top.type?top.type.toUpperCase():top.number;
+    div.appendChild(cardDiv);
+  }
+}
+
+function renderHand(){
+  const div=document.getElementById('player-hand'); div.innerHTML='';
+  players[0].forEach((c,i)=>{
+    const cardDiv=document.createElement('div');
+    cardDiv.className='card '+c.color;
+    cardDiv.textContent=c.type?c.type.toUpperCase():c.number;
+    if(canPlay(c)) cardDiv.style.border='2px solid white'; else cardDiv.style.border='none';
+    cardDiv.onclick=()=>playCard(i);
+    div.appendChild(cardDiv);
+  });
+  document.getElementById('unoBtn').disabled = players[0].length!==1;
+}
+
+function drawCard(){
+  if(deck.length===0) reshuffleDeck();
+  players[0].push(deck.pop());
+  drawSound.play();
+  renderHand();
+  nextTurn();
+}
+
+function reshuffleDeck(){
+  const top=discardPile.pop();
+  deck=discardPile;
+  discardPile=[top];
+  shuffle(deck);
+}
+
+function canPlay(card){
+  const top=discardPile[discardPile.length-1];
+  if(pendingDraw>0 && card.type!=='draw2' && card.type!=='draw4') return false;
+  return card.color===top.color || card.number===top.number || card.type===top.type || card.color==='wild';
+}
+
+function playCard(index){
+  const card=players[0][index];
+  if(!canPlay(card)){ alert("Cannot play this card!"); return; }
+  animateCardSlide(card, index);
+}
+
+function animateCardSlide(card,index){
+  const handDiv=document.getElementById('player-hand').children[index];
+  const discardDiv=document.getElementById('discard-pile');
+  const rectHand=handDiv.getBoundingClientRect();
+  const rectDiscard=discardDiv.getBoundingClientRect();
+  const dx=rectDiscard.left-rectHand.left;
+  const dy=rectDiscard.top-rectHand.top;
+  handDiv.style.transition='transform 0.7s';
+  handDiv.style.transform=`translate(${dx}px, ${dy}px)`;
+  playSound.play();
+  setTimeout(()=>{
+    handDiv.style.transition='none';
+    handDiv.style.transform='none';
+    discardPile.push(card);
+    players[0].splice(index,1);
+    applyCardEffect(card,0);
+    renderHand(); renderDiscard(); checkWin();
+    nextTurn();
+  },700);
+}
+
+function applyCardEffect(card,player){
+  if(card.type==='skip'){ currentPlayer=(currentPlayer+direction+4)%4; }
+  if(card.type==='reverse'){ direction*=-1; }
+  if(card.type==='draw2'){ pendingDraw+=2; }
+  if(card.type==='draw4'){ pendingDraw+=4; }
+  if(card.type==='wild'){ card.color=prompt("Choose color: red, blue, green, yellow","red"); }
+}
+
+function pressUno(){
+  if(players[0].length===1){ unoSound.play(); alert("UNO pressed!"); document.getElementById('unoBtn').disabled=true; }
+}
+
+function startTimer(){
+  clearInterval(turnInterval);
+  timer=10;
+  document.getElementById('timer').innerText = "Time Left: 10s";
+  turnInterval=setInterval(()=>{
+    timer--;
+    document.getElementById('timer').innerText = "Time Left: "+timer+"s";
+    if(timer<=0){ clearInterval(turnInterval); autoPlayTurn(); }
+  },1000);
+}
+
+function autoPlayTurn(){ if(currentPlayer===0){ drawCard(); } else aiTurn(); }
+
+function aiTurn(){
+  const hand=players[currentPlayer];
+  if(hand.length===1){ unoSound.play(); }
+  let played=false;
+  for(let i=0;i<hand.length;i++){
+    if(canPlay(hand[i])){
+      const card=hand[i];
+      animateAISlide(card,currentPlayer,i);
+      hand.splice(i,1);
+      played=true;
+      break;
+    }
+  }
+  if(!played && pendingDraw>0){
+    for(let i=0;i<pendingDraw;i++){ if(deck.length===0) reshuffleDeck(); hand.push(deck.pop()); drawSound.play(); }
+    pendingDraw=0;
+  } else if(!played && deck.length>0){ hand.push(deck.pop()); drawSound.play(); }
+  renderPlayers(); renderHand(); checkWin();
+  setTimeout(nextTurn,800);
+}
+
+function animateAISlide(card,player,index){
+  playSound.play();
+  discardPile.push(card);
+  renderDiscard();
+}
+
+function nextTurn(){
+  currentPlayer=(currentPlayer+direction+4)%4;
+  document.getElementById('turn').innerText = "Current Turn: "+(currentPlayer===0?"Player 0 (You)":"AI Player "+currentPlayer);
+  startTimer();
+  if(currentPlayer!==0) setTimeout(aiTurn,500);
+}
+
+function checkWin(){
+  for(let i=0;i<4;i++){
+    if(players[i].length===0){
+      clearInterval(turnInterval);
+      const winner=(i===0)?"You Win!":"AI Player "+i+" Wins!";
+      const restart=confirm(winner + " Start a new game?");
+      if(restart){ location.reload(); }
+      else { alert("Thanks for playing!"); }
+      return true;
+    }
+  }
+}
+
+initDeck(); dealCards(); renderHand(); renderDiscard(); renderPlayers(); startTimer();
+</script>
+</body>
+</html>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>UNO Sliding Cards with Background</title>
+<style>
+body {
+  font-family: sans-serif;
+  margin: 0;
+  padding: 0;
+  overflow-x: hidden;
+  /* Sky gradient */
+  background: linear-gradient(to bottom, #87CEEB 0%, #87CEEB 70%, #4CAF50 70%, #4CAF50 100%);
+  position: relative;
+}
+
+/* Clouds */
+.cloud {
+  position: absolute;
+  background: white;
+  border-radius: 50%;
+  opacity: 0.8;
+  animation: moveClouds linear infinite;
+}
+.cloud::before,
+.cloud::after {
+  content: '';
+  position: absolute;
+  background: white;
+  border-radius: 50%;
+}
+.cloud1 { width: 120px; height: 60px; top: 50px; left: -150px; animation-duration: 60s; }
+.cloud1::before { width: 70px; height: 70px; top: -20px; left: 20px; }
+.cloud1::after { width: 50px; height: 50px; top: 10px; left: 70px; }
+
+.cloud2 { width: 100px; height: 50px; top: 120px; left: -200px; animation-duration: 80s; }
+.cloud2::before { width: 60px; height: 60px; top: -15px; left: 15px; }
+.cloud2::after { width: 40px; height: 40px; top: 5px; left: 60px; }
+
+@keyframes moveClouds {
+  0% { transform: translateX(0); }
+  100% { transform: translateX(200vw); }
+}
+
+/* Game elements styling */
+#discard-pile, #player-hand, #players { margin: 20px; position: relative; height: 150px; z-index: 2; }
+.card { display:inline-block; width:60px; height:90px; margin:5px; border-radius:10px; line-height:90px; font-weight:bold; cursor:pointer; position:relative; }
+.red{ background:#e74c3c; color:white; } 
+.blue{ background:#3498db; color:white; } 
+.green{ background:#2ecc71; color:white; } 
+.yellow{ background:#f1c40f; color:black; }
+.wild{ background:black; color:white; }
+#turn { margin:10px; font-size:18px; z-index: 2; position: relative; }
+#timer { margin:10px; font-size:18px; color:#f39c12; z-index: 2; position: relative; }
+#unoBtn { padding:10px 20px; font-size:16px; margin:10px; z-index: 2; position: relative; }
+
+/* Grass at bottom */
+#grass {
+  position: fixed;
+  bottom: 0;
+  width: 100%;
+  height: 100px;
+  background: linear-gradient(to top, #4CAF50 0%, #81C784 100%);
+  z-index: 1;
+}
+</style>
+</head>
+<body>
+<div class="cloud cloud1"></div>
+<div class="cloud cloud2"></div>
+
+<h1 style="position: relative; z-index:2;">UNO Sliding Cards</h1>
+<div id="turn">Current Turn: Player 0 (You)</div>
+<div id="timer">Time Left: 10s</div>
+<div id="discard-pile">Discard Pile:</div>
+<div id="players"></div>
+<div id="player-hand">Your Hand:</div>
+<button onclick="drawCard()">Draw Card</button>
+<button id="unoBtn" onclick="pressUno()" disabled>Press UNO!</button>
+
+<div id="grass"></div>
+
+<!-- Sounds and game scripts go here -->
+<audio id="bgMusic" src="https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3" loop autoplay></audio>
+<audio id="drawSound" src="https://www.soundjay.com/button/beep-07.wav"></audio>
+<audio id="playSound" src="https://www.soundjay.com/button/button-16.wav"></audio>
+<audio id="unoSound" src="https://www.soundjay.com/button/beep-10.wav"></audio>
+
+<script>
+// All game JS code (deck init, render, playCard, AI, timer) remains the same as before
+</script>
+</body>
+</html>

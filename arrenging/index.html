@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <link rel="icon" href="/Logo.jpg">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Soloact - Featuring Game</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>15 Puzzle Game</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            background: #222;
+            color: #fff;
+        }
+        .game-container {
+            text-align: center;
+        }
+        .board {
+            display: grid;
+            grid-template-columns: repeat(4, 80px);
+            grid-template-rows: repeat(4, 80px);
+            gap: 5px;
+            margin: 20px auto;
+        }
+        .tile {
+            background: #4caf50;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 24px;
+            font-weight: bold;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        .tile:hover {
+            background: #45a047;
+        }
+        .empty {
+            background: #222;
+            cursor: default;
+        }
+        .controls {
+            display: flex;
+            justify-content: center;
+            gap: 10px; /* Space between the buttons */
+        }
+        button {
+            padding: 10px 20px;
+            font-size: 16px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            color: #fff;
+        }
+        #shuffle-btn {
+            background: #f44336;
+        }
+        #shuffle-btn:hover {
+            background: #d32f2f;
+        }
+        #home-btn {
+            background: #2196F3;
+        }
+        #home-btn:hover {
+            background: #1e88e5;
+        }
+    </style>
+</head>
+<body>
+    <div class="game-container">
+        <h1>15 Puzzle Game</h1>
+        <div class="board" id="board"></div>
+        <div class="controls">
+            <button id="shuffle-btn" onclick="shuffle()">Shuffle</button>
+            <button id="home-btn" onclick="returnToHome()">Return to Home</button>
+        </div>
+    </div>
+    <script>
+        const SIZE = 4;
+        let board = [];
+        
+        // New function to return to home
+        function returnToHome() {
+            window.location.href = '../page3.html';
+        }
+
+        function createBoard() {
+            board = [];
+            for (let i = 1; i < SIZE * SIZE; i++) {
+                board.push(i);
+            }
+            board.push(0);
+            renderBoard();
+        }
+
+        function renderBoard() {
+            const boardEl = document.getElementById('board');
+            boardEl.innerHTML = '';
+            board.forEach((num) => {
+                const tile = document.createElement('div');
+                tile.className = 'tile';
+                if (num === 0) {
+                    tile.classList.add('empty');
+                } else {
+                    tile.textContent = num;
+                    tile.onclick = () => {
+                        const idx = board.indexOf(num);
+                        move(idx);
+                    };
+                }
+                boardEl.appendChild(tile);
+            });
+        }
+
+        function move(idx) {
+            const emptyIdx = board.indexOf(0);
+            if (isAdjacent(idx, emptyIdx)) {
+                [board[idx], board[emptyIdx]] = [board[emptyIdx], board[idx]];
+                renderBoard();
+            }
+        }
+
+        function isAdjacent(a, b) {
+            const ax = a % SIZE;
+            const ay = Math.floor(a / SIZE);
+            const bx = b % SIZE;
+            const by = Math.floor(b / SIZE);
+            return Math.abs(ax - bx) + Math.abs(ay - by) === 1;
+        }
+
+        function shuffle() {
+            createBoard();
+            let emptyIdx = board.indexOf(0);
+            for (let i = 0; i < 200; i++) {
+                const neighbors = getNeighbors(emptyIdx);
+                const randIdx = neighbors[Math.floor(Math.random() * neighbors.length)];
+                [board[emptyIdx], board[randIdx]] = [board[randIdx], board[emptyIdx]];
+                emptyIdx = randIdx;
+            }
+            renderBoard();
+        }
+
+        function getNeighbors(idx) {
+            const x = idx % SIZE;
+            const y = Math.floor(idx / SIZE);
+            const neighbors = [];
+            if (x > 0) neighbors.push(idx - 1);
+            if (x < SIZE - 1) neighbors.push(idx + 1);
+            if (y > 0) neighbors.push(idx - SIZE);
+            if (y < SIZE - 1) neighbors.push(idx + SIZE);
+            return neighbors;
+        }
+        createBoard();
+    </script>
+</body>
+</html>
