@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Clash Royale Mini</title>
+<style>
+body { margin:0; font-family:sans-serif; background:#222; color:white; text-align:center; }
+canvas { display:block; margin:auto; background:#444; }
+#controls { text-align:center; margin:10px; display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; }
+button { margin:5px; padding:10px 15px; font-size:16px; cursor: pointer; }
+</style>
+</head>
+<body>
+<h1>Clash Royale Mini</h1>
+<div id="controls">
+    <div>
+        <span>Lane: </span>
+        <button onclick="setLane(0)">Top</button>
+        <button onclick="setLane(1)">Middle</button>
+        <button onclick="setLane(2)">Bottom</button>
+    </div>
+    <div>
+        <button onclick="spawnTroop('barbarian')">Barbarian (10)</button>
+        <button onclick="spawnTroop('archer')">Archer (15)</button>
+        <button onclick="spawnTroop('goblin')">Goblin (8)</button>
+        <button onclick="spawnTroop('valkyrie')">Valkyrie (20)</button>
+    </div>
+    <div>
+        <button onclick="selectSpell('fireball')">Fireball</button>
+        <button onclick="selectSpell('heal')">Heal</button>
+    </div>
+    <div style="width: 100%;">
+        <button id="pauseBtn">Pause</button>
+        <button id="homeBtn">Return to Home</button>
+    </div>
+    <span id="gold">Gold: 50</span>
+</div>
+<canvas id="gameCanvas" width="800" height="400"></canvas>
+
+<script>
+const canvas = document.getElementById('gameCanvas');
+const ctx = canvas.getContext('2d');
+const pauseBtn = document.getElementById('pauseBtn');
+const homeBtn = document.getElementById('homeBtn');
+
+let playerGold = 50;
+let selectedLane = 1;
+let selectedSpell = null;
+let spellCooldown = 0;
+let isPaused = false;
+
+const lanesY = [100,200,300];
+const towers = { player:{x:50,y:200,health:100}, enemy:{x:750,y:200,health:100} };
+const troops = [];
+const enemyTroops = [];
+const spells = [];
+const enemySpells = [];
+
+const troopData = {
+    barbarian:{speed:1.5,damage:5,health:30,cost:10,color:'brown',size:15},
+    archer:{speed:1,damage:5,health:20,cost:15,color:'blue',size:12,range:100},
+    goblin:{speed:2,damage:3,health:15,cost:8,color:'green',size:10},
+    valkyrie:{speed:1,damage:8,health:40,cost:20,color:'red',size:18,range:20}
+};
+
+function setLane(l){ selectedLane=l; }
+function spawnTroop(type){
+    if(isPaused) return; // Do not spawn troops when paused
+    if(playerGold>=troopData[type].cost){
+        playerGold -= troopData[type].cost;
+        document.getElementById('gold').innerText="Gold: "+playerGold;
+        troops.push({x:towers.player.x+30,y:lanesY[selectedLane],type:type,health:troopData[type].health,direction:1,attackCooldown:0, lane:selectedLane});
+    }
+}
+
+function selectSpell(spell){ if(isPaused) return; if(spellCooldown<=0) selectedSpell=spell; }
+canvas.addEventListener('click', e=>{
+    if(isPaused) return;
+    if(!selectedSpell) return;
+    const rect = canvas.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+
+    if(selectedSpell==='fireball'){ spells.push({x:towers.player.x, y:towers.player.y, targetX:x,targetY:y,type:'fireball',radius:0}); spellCooldown=200; }
+    if(selectedSpell==='heal'){ spells.push({x:x,y:y,type:'heal',radius:0}); spellCooldown=200; }
+    selectedSpell=null;
+});
+
+// Gold income
+setInterval(()=>{ if(!isPaused) { playerGold++; document.getElementById('gold').innerText="Gold: "+playerGold; } },1000);
+
+// Enemy AI
+function spawnEnemyTroop(){
+    if(isPaused) return;
+    const types = ['barbarian','archer','goblin','valkyrie'];
+    const type = types[Math.floor(Math.random()*types.length)];
+    const lane = Math.floor(Math.random()*3);
+    enemyTroops.push({x:towers.enemy.x-30,y:lanesY[lane],type:type,health:troopData[type].health,direction:-1,attackCooldown:0,lane:lane});
+}
+
+function enemyCastSpell(){
+    if(isPaused) return;
+    if(Math.random()<0.3){
+        const x = Math.random()*canvas.width*0.5+canvas.width*0.5;
+        const lane = Math.floor(Math.random()*3);
+        enemySpells.push({x:towers.enemy.x,y:towers.enemy.y,targetX:x,targetY:lanesY[lane],type:'fireball',radius:0});
+    }
+}
+
+setInterval(spawnEnemyTroop,4000);
+setInterval(enemyCastSpell,5000);
+
+function draw(){
+    if(isPaused) {
+        requestAnimationFrame(draw);
+        return;
+    }
+    ctx.clearRect(0,0,canvas.width,canvas.height);
+
+    // Lanes
+    ctx.strokeStyle='white';
+    ctx.lineWidth=1;
+    for(let y of lanesY){ ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(canvas.width,y); ctx.stroke(); }
+
+    // Towers
+    ctx.fillStyle='gray';
+    ctx.fillRect(towers.player.x-20,lanesY[0]-50,40,200);
+    ctx.fillRect(towers.enemy.x-20,lanesY[0]-50,40,200);
+
+    // Draw spells
+    spells.forEach((s,i)=>{
+        if(s.type==='fireball'){
+            const dx = (s.targetX - s.x)/10;
+            const dy = (s.targetY - s.y)/10;
+            s.x+=dx; s.y+=dy; s.radius+=0.5;
+            ctx.fillStyle='orange';
+            ctx.beginPath(); ctx.arc(s.x,s.y,15+Math.sin(s.radius*0.5)*5,0,Math.PI*2); ctx.fill();
+            enemyTroops.forEach(t=>{ if(Math.hypot(t.x-s.x,t.y-s.y)<20) t.health-=0.5; });
+            if(Math.abs(s.x-s.targetX)<5 && Math.abs(s.y-s.targetY)<5) spells.splice(i,1);
+        }
+        if(s.type==='heal'){
+            s.radius+=1;
+            ctx.strokeStyle='lime';
+            ctx.beginPath(); ctx.arc(s.x,s.y,20+Math.sin(s.radius*0.5)*5,0,Math.PI*2); ctx.stroke();
+            troops.forEach(t=>{ if(Math.hypot(t.x-s.x,t.y-s.y)<25){ t.health+=0.3; if(t.health>troopData[t.type].health) t.health=troopData[t.type].health; } });
+            if(s.radius>20) spells.splice(i,1);
+        }
+    });
+
+    enemySpells.forEach((s,i)=>{
+        const dx=(s.targetX-s.x)/10;
+        const dy=(s.targetY-s.y)/10;
+        s.x+=dx; s.y+=dy; s.radius+=0.5;
+        ctx.fillStyle='red';
+        ctx.beginPath(); ctx.arc(s.x,s.y,15+Math.sin(s.radius*0.5)*5,0,Math.PI*2); ctx.fill();
+        troops.forEach(t=>{ if(Math.hypot(t.x-s.x,t.y-s.y)<20) t.health-=0.5; });
+        if(Math.abs(s.x-s.targetX)<5 && Math.abs(s.y-s.targetY)<5) enemySpells.splice(i,1);
+    });
+
+    // Draw and update troops
+    function updateTroops(arr,enemyArr){
+        for(let i=0;i<arr.length;i++){
+            const t=arr[i];
+            let target=null;
+            let minDist=Infinity;
+            for(let j=0;j<enemyArr.length;j++){
+                const e=enemyArr[j];
+                if(t.lane===e.lane){
+                    const dist=Math.abs(t.x-e.x);
+                    if(dist<minDist){ minDist=dist; target=e; }
+                }
+            }
+            if(t.type==='archer' && target && minDist<=troopData[t.type].range){
+                if(t.attackCooldown<=0){ target.health-=troopData[t.type].damage; t.attackCooldown=50; }
+            } else if(t.type==='valkyrie' && target && minDist<=troopData[t.type].range){
+                if(t.attackCooldown<=0){
+                    enemyArr.forEach(e=>{ if(e.lane===t.lane && Math.abs(t.x-e.x)<=troopData[t.type].range) e.health-=troopData[t.type].damage; });
+                    t.attackCooldown=40;
+                }
+            } else if(target && minDist<=troopData[target.type].size+troopData[t.type].size){
+                if(t.attackCooldown<=0){ target.health-=troopData[t.type].damage; t.attackCooldown=30; }
+            } else t.x+=troopData[t.type].speed*t.direction;
+
+            if(t.attackCooldown>0) t.attackCooldown--;
+            if(t.health<=0){ arr.splice(i,1); i--; continue; }
+
+            ctx.fillStyle=troopData[t.type].color;
+            ctx.beginPath(); ctx.arc(t.x,t.y,troopData[t.type].size,0,Math.PI*2); ctx.fill();
+            ctx.fillStyle='lime';
+            ctx.fillRect(t.x-troopData[t.type].size,t.y-troopData[t.type].size-5,troopData[t.type].size*2*(t.health/troopData[t.type].health),3);
+
+            // Attack towers
+            if(t.direction===1 && t.x+troopData[t.type].size>=towers.enemy.x-20){ towers.enemy.health-=troopData[t.type].damage; arr.splice(i,1); i--; }
+            if(t.direction===-1 && t.x-troopData[t.type].size<=towers.player.x+20){ towers.player.health-=troopData[t.type].damage; arr.splice(i,1); i--; }
+        }
+    }
+
+    updateTroops(troops,enemyTroops);
+    updateTroops(enemyTroops,troops);
+
+    // Draw tower health bars
+    ctx.fillStyle='red';
+    ctx.fillRect(10,10,towers.player.health*2,20);
+    ctx.fillRect(canvas.width-210,10,towers.enemy.health*2,20);
+    ctx.strokeStyle='white'; ctx.strokeRect(10,10,200,20); ctx.strokeRect(canvas.width-210,10,200,20);
+
+    if(towers.player.health<=0){ alert("Enemy Wins!"); location.reload(); }
+    if(towers.enemy.health<=0){ alert("You Win!"); location.reload(); }
+    if(spellCooldown>0) spellCooldown--;
+    requestAnimationFrame(draw);
+}
+
+pauseBtn.addEventListener('click', () => {
+    isPaused = !isPaused;
+    if(isPaused) {
+        pauseBtn.textContent = 'Resume';
+    } else {
+        pauseBtn.textContent = 'Pause';
+        requestAnimationFrame(draw); // Resume the game loop
+    }
+});
+
+homeBtn.addEventListener('click', () => {
+    isPaused = true;
+    window.location.href = '../page3.html';
+});
+
+draw();
+</script>
+</body>
+</html>

@@ -1,0 +1,300 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Tetris Game</title>
+<style>
+    body {
+        margin: 0;
+        /* Improved background gradient */
+        background: linear-gradient(to right, #24243e, #302b63, #0f0c29);
+        color: #fff;
+        font-family: sans-serif;
+        text-align: center;
+    }
+    #gameOverlay {
+        position: fixed;
+        top: 0; left: 0;
+        width: 100%; height: 100%;
+        background: rgba(0,0,0,0.9);
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+        text-align: center;
+        z-index: 100;
+    }
+    #gameOverlay .overlay-buttons {
+        display: flex;
+        gap: 15px;
+        margin-top: 20px;
+    }
+    #gameOverlay button {
+        padding: 10px 20px;
+        font-size: 18px;
+        cursor: pointer;
+        border: none;
+        border-radius: 5px;
+        background-color: #4CAF50;
+        color: white;
+    }
+    #gameOverlay button:hover {
+        background-color: #45a049;
+    }
+    canvas {
+        display: block;
+        background: #fff;
+        margin: 20px auto;
+        border: 2px solid #000;
+    }
+    #ui {
+        font-size: 20px;
+        margin-bottom: 10px;
+    }
+</style>
+</head>
+<body>
+
+<div id="gameOverlay">
+    <h1>Tetris Game</h1>
+    <p>Rules:</p>
+    <ul style="text-align:left; max-width: 400px;">
+        <li>Use <b>Arrow Left/Right</b> to move tetrominoes.</li>
+        <li>Use <b>Arrow Up</b> to rotate.</li>
+        <li>Use <b>Arrow Down</b> to soft drop.</li>
+        <li>Clear lines to score points and increase levels.</li>
+        <li>The game ends if blocks reach the top.</li>
+    </ul>
+    <div class="overlay-buttons">
+        <button onclick="startGame()">Start Game</button>
+        <button onclick="returnToHome()">Return to Home</button>
+    </div>
+</div>
+
+<div id="ui">
+    <span id="score">Score: 0</span> | <span id="level">Level: 1</span>
+    <div>Next Piece:</div>
+    <canvas id="nextPiece" width="80" height="80" style="background:#fff; margin:5px auto; display:block;"></canvas>
+</div>
+
+<canvas id="tetris" width="240" height="400"></canvas>
+
+<div style="text-align: center; margin-top: 10px;">
+    <button id="pauseBtn" onclick="togglePause()">Pause</button>
+</div>
+
+<script>
+const canvas = document.getElementById('tetris');
+const ctx = canvas.getContext('2d');
+const nextCanvas = document.getElementById('nextPiece');
+const nextCtx = nextCanvas.getContext('2d');
+const pauseBtn = document.getElementById('pauseBtn');
+
+const scale = 20;
+const cols = canvas.width / scale;
+const rows = canvas.height / scale;
+
+let arena = createMatrix(cols, rows);
+
+const player = { pos: {x:0,y:0}, matrix:null, score:0, level:1, lines:0 };
+let nextPieceMatrix;
+let dropCounter=0, dropInterval=1000;
+let lastTime=0;
+let isPaused = false; // New: Game state flag
+
+const colors = [null,'#FF0D72','#0DC2FF','#0DFF72','#F538FF','#FF8E0D','#FFE138','#3877FF'];
+
+function createMatrix(w,h){
+    const matrix=[];
+    while(h--) matrix.push(new Array(w).fill(0));
+    return matrix;
+}
+
+function createPiece(type){
+    switch(type){
+        case 'T': return [[0,1,0],[1,1,1]];
+        case 'O': return [[2,2],[2,2]];
+        case 'L': return [[0,0,3],[3,3,3]];
+        case 'J': return [[4,0,0],[4,4,4]];
+        case 'I': return [[0,0,0,0],[5,5,5,5]];
+        case 'S': return [[0,6,6],[6,6,0]];
+        case 'Z': return [[7,7,0],[0,7,7]];
+    }
+}
+
+function drawMatrix(matrix, offset, context){
+    matrix.forEach((row,y)=>{
+        row.forEach((value,x)=>{
+            if(value!==0){
+                context.fillStyle=colors[value];
+                context.fillRect(x+offset.x, y+offset.y, 1,1);
+                context.strokeStyle='#000';
+                context.lineWidth=0.05;
+                context.strokeRect(x+offset.x, y+offset.y, 1,1);
+            }
+        });
+    });
+}
+
+function merge(arena, player){
+    player.matrix.forEach((row,y)=>{
+        row.forEach((value,x)=>{
+            if(value!==0) arena[y+player.pos.y][x+player.pos.x]=value;
+        });
+    });
+}
+
+function collide(arena, player){
+    const [m,o] = [player.matrix, player.pos];
+    for(let y=0;y<m.length;y++){
+        for(let x=0;x<m[y].length;x++){
+            if(m[y][x]!==0 && (arena[y+o.y] && arena[y+o.y][x+o.x])!==0)
+                return true;
+        }
+    }
+    return false;
+}
+
+function rotate(matrix, dir){
+    for(let y=0;y<matrix.length;y++){
+        for(let x=0;x<y;x++){
+            [matrix[x][y],matrix[y][x]]=[matrix[y][x],matrix[x][y]];
+        }
+    }
+    if(dir>0) matrix.forEach(row=>row.reverse());
+    else matrix.reverse();
+}
+
+function arenaSweep(){
+    let rowCount=1;
+    outer: for(let y=arena.length-1;y>=0;y--){
+        for(let x=0;x<arena[y].length;x++){
+            if(arena[y][x]===0) continue outer;
+        }
+        const row = arena.splice(y,1)[0].fill(0);
+        arena.unshift(row);
+        player.score += rowCount*10;
+        player.lines +=1;
+        rowCount*=2;
+        if(player.lines%5===0) player.level+=1;
+    }
+}
+
+function playerDrop(){
+    player.pos.y++;
+    if(collide(arena, player)){
+        player.pos.y--;
+        merge(arena, player);
+        resetPlayer();
+        arenaSweep();
+        updateUI();
+    }
+    dropCounter=0;
+}
+
+function playerMove(dir){
+    player.pos.x += dir;
+    if(collide(arena, player)) player.pos.x -= dir;
+}
+
+function playerRotate(dir){
+    rotate(player.matrix, dir);
+    const pos=player.pos.x;
+    let offset=1;
+    while(collide(arena, player)){
+        player.pos.x += offset;
+        offset=-(offset+(offset>0?1:-1));
+        if(offset>player.matrix[0].length){
+            rotate(player.matrix,-dir);
+            player.pos.x = pos;
+            return;
+        }
+    }
+}
+
+function resetPlayer(){
+    const pieces = 'TJLOSZI';
+    player.matrix = nextPieceMatrix || createPiece(pieces[Math.random()*pieces.length|0]);
+    nextPieceMatrix = createPiece(pieces[Math.random()*pieces.length|0]);
+    player.pos.y=0;
+    player.pos.x=Math.floor(cols/2)-Math.floor(player.matrix[0].length/2);
+    drawNextPiece();
+    if(collide(arena, player)){
+        arena.forEach(row=>row.fill(0));
+        player.score=0; player.level=1; player.lines=0;
+        updateUI();
+    }
+}
+
+function draw(){
+    ctx.fillStyle='#fff';
+    ctx.fillRect(0,0,canvas.width,canvas.height);
+    ctx.save();
+    ctx.scale(scale,scale);
+    drawMatrix(arena,{x:0,y:0},ctx);
+    drawMatrix(player.matrix, player.pos, ctx);
+    ctx.restore();
+}
+
+function drawNextPiece(){
+    nextCtx.fillStyle='#fff';
+    nextCtx.fillRect(0,0,nextCanvas.width,nextCanvas.height);
+    nextCtx.save();
+    nextCtx.scale(20,20);
+    drawMatrix(nextPieceMatrix,{x:0,y:0}, nextCtx);
+    nextCtx.restore();
+}
+
+function update(time=0){
+    if (isPaused) { // New: Check for pause state
+        requestAnimationFrame(update); // Continue the loop but don't update
+        return;
+    }
+
+    const deltaTime = time-lastTime;
+    lastTime = time;
+    dropCounter += deltaTime;
+    if(dropCounter > dropInterval/player.level) playerDrop();
+    draw();
+    requestAnimationFrame(update);
+}
+
+function updateUI(){
+    document.getElementById('score').innerText='Score: '+player.score;
+    document.getElementById('level').innerText='Level: '+player.level;
+}
+
+// New: Function to toggle pause
+function togglePause(){
+    isPaused = !isPaused;
+    if(isPaused){
+        pauseBtn.innerText = "Resume";
+    } else {
+        pauseBtn.innerText = "Pause";
+        update(); // Restart the animation loop
+    }
+}
+
+document.addEventListener('keydown', event=>{
+    if (isPaused) return; // New: Disable controls when paused
+
+    if(event.key==='ArrowLeft') playerMove(-1);
+    if(event.key==='ArrowRight') playerMove(1);
+    if(event.key==='ArrowDown') playerDrop();
+    if(event.key==='ArrowUp') playerRotate(1);
+});
+
+function startGame(){
+    document.getElementById('gameOverlay').style.display='none';
+    resetPlayer();
+    updateUI();
+    update();
+}
+function returnToHome(){
+    window.location.href='../page3.html';
+}
+</script>
+
+</body>
+</html>
