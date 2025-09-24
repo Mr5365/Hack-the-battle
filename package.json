@@ -18,6 +18,7 @@
   },
   "homepage": "https://github.com/Mr5365/Hack-the-battle#readme",
   "dependencies": {
+    "@chrisoakman/chessboardjs": "^1.0.0",
     "chess.js": "^1.4.0",
     "express": "^5.1.0",
     "nanoid": "^5.1.6",

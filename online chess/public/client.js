@@ -71,7 +71,7 @@ function initBoard() {
         onDrop: onDrop,
         orientation: playerColor === 'w' ? 'white' : 'black',
         // This is the 100% correct URL
-        pieceTheme: 'https://unpkg.com/@chrisoakman/chessboardjs@1.0.0/img/chesspieces/wikipedia/{piece}.png'
+        pieceTheme: 'https://chessboardjs.com/img/chesspieces/wikipedia/{piece}.png'
     };
     board = Chessboard('myBoard', config);
 }
