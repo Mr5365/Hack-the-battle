@@ -1,102 +1,115 @@
 // client.js
 
-const socket = io();
+// ... (keep all the socket.io code from before) ...
 
-// UI Elements
-const lobbyDiv = document.getElementById('lobby');
-const gameDiv = document.getElementById('game-container');
-const createRoomBtn = document.getElementById('createRoomBtn');
-const joinRoomBtn = document.getElementById('joinRoomBtn');
-const roomCodeInput = document.getElementById('roomCodeInput');
-const statusP = document.getElementById('status');
-const gameStatusP = document.getElementById('game-status');
-const canvas = document.getElementById('carrom-board');
-const ctx = canvas.getContext('2d');
-
-let myPlayerNum = null;
-
-// --- Lobby Logic ---
-createRoomBtn.addEventListener('click', () => {
-    socket.emit('createRoom');
-});
-
-joinRoomBtn.addEventListener('click', () => {
-    const code = roomCodeInput.value;
-    if (code) {
-        socket.emit('joinRoom', code);
-    }
-});
-
-// --- Socket.IO Event Listeners ---
-socket.on('roomCreated', (roomCode) => {
-    statusP.textContent = `Room created! Your Team Code is: ${roomCode}. Share it with a friend.`;
-    roomCodeInput.value = roomCode;
-    myPlayerNum = 1;
-});
-
-socket.on('startGame', (players) => {
-    lobbyDiv.style.display = 'none';
-    gameDiv.style.display = 'block';
-
-    if (!myPlayerNum) {
-       myPlayerNum = 2; // If game starts and we don't have a number, we are player 2
-    }
-
-    gameStatusP.textContent = `You are Player ${myPlayerNum}. The game has started!`;
-    drawBoard(); // Initial drawing of the board
-});
-
-socket.on('opponentMove', (moveData) => {
-    console.log('Opponent made a move:', moveData);
-    gameStatusP.textContent = "Opponent's turn finished. Your turn!";
-    // TODO: Update your local game state with the moveData and redraw the board
-    // e.g., updateCoinPositions(moveData.newPositions);
-    drawBoard();
-});
-
-socket.on('opponentLeft', () => {
-    gameStatusP.textContent = "Your opponent has left the game.";
-});
-
-
-
-socket.on('error', (message) => {
-    statusP.textContent = `Error: ${message}`;
-});
-
-// --- Game Drawing and Logic (Placeholder) ---
+// --- Game Drawing and Logic (NEW and IMPROVED) ---
 
 function drawBoard() {
-    // Clear canvas
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    const canvas = document.getElementById('carrom-board');
+    const ctx = canvas.getContext('2d');
+    const width = canvas.width;
+    const height = canvas.height;
 
-    // Draw outer frame
-    ctx.strokeStyle = '#654321'; // Darker brown
-    ctx.lineWidth = 10;
-    ctx.strokeRect(0, 0, canvas.width, canvas.height);
+    // --- Colors and Styles ---
+    const boardColor = '#FDF5E6'; // A creamy, wooden color (OldLace)
+    const borderColor = '#8B4513'; // A dark brown (SaddleBrown)
+    const lineColor = '#4a2c0c'; // A very dark brown for lines
+    const pocketColor = '#000000'; // Black for pockets
+    const arrowColor = '#D22B2B'; // A deep red (Firebrick)
 
-    // Draw center circle
+    // --- Dimensions ---
+    const padding = 30; // Distance from edge to playing area
+    const pocketRadius = 25;
+    const centerCircleRadius = 50;
+    const baseLineOffset = width / 4; // How far the baselines are from the center
+
+    // 1. Clear and Draw the Main Board Surface
+    ctx.clearRect(0, 0, width, height);
+    ctx.fillStyle = boardColor;
+    ctx.fillRect(0, 0, width, height);
+
+    // 2. Draw the Outer Border (Frame)
+    ctx.strokeStyle = borderColor;
+    ctx.lineWidth = 15; // A thick, chunky border
+    ctx.strokeRect(0, 0, width, height);
+    ctx.lineWidth = 1; // Reset line width for finer lines
+
+    // 3. Draw the Four Corner Pockets
+    ctx.fillStyle = pocketColor;
+    const pocketPositions = [
+        { x: padding, y: padding },
+        { x: width - padding, y: padding },
+        { x: width - padding, y: height - padding },
+        { x: padding, y: height - padding }
+    ];
+
+    pocketPositions.forEach(pos => {
+        ctx.beginPath();
+        ctx.arc(pos.x, pos.y, pocketRadius, 0, 2 * Math.PI);
+        ctx.fill();
+    });
+
+    // 4. Draw the Center Circle and Design
+    const centerX = width / 2;
+    const centerY = height / 2;
+    
+    // Outer Center Circle
+    ctx.strokeStyle = lineColor;
     ctx.beginPath();
-    ctx.arc(300, 300, 50, 0, 2 * Math.PI);
-    ctx.strokeStyle = 'red';
-    ctx.lineWidth = 2;
+    ctx.arc(centerX, centerY, centerCircleRadius, 0, 2 * Math.PI);
     ctx.stroke();
 
-    // TODO: Draw all the coins (black, white, queen) and the striker based on game state
-    // This is where your main game logic will go.
+    // Inner Center Circle (decorative)
+    ctx.strokeStyle = arrowColor;
+    ctx.beginPath();
+    ctx.arc(centerX, centerY, centerCircleRadius / 2, 0, 2 * Math.PI);
+    ctx.stroke();
+
+    // 5. Draw the Four Base Lines
+    ctx.strokeStyle = lineColor;
+    ctx.lineWidth = 5; // Thicker lines for the base
+
+    // Top
+    ctx.strokeRect(baseLineOffset, padding + 60, width - 2 * baseLineOffset, 30);
+    // Bottom
+    ctx.strokeRect(baseLineOffset, height - padding - 90, width - 2 * baseLineOffset, 30);
+    // Left
+    ctx.strokeRect(padding + 60, baseLineOffset, 30, height - 2 * baseLineOffset);
+    // Right
+    ctx.strokeRect(width - padding - 90, baseLineOffset, 30, height - 2 * baseLineOffset);
+
+    // 6. Draw the Decorative Arrows
+    ctx.strokeStyle = arrowColor;
+    ctx.lineWidth = 3;
+    const arrowLength = 50;
+    const arrowOffsetFromBase = 40;
+
+    // Top-left arrow
+    ctx.beginPath();
+    ctx.moveTo(baseLineOffset - arrowOffsetFromBase, baseLineOffset - arrowOffsetFromBase);
+    ctx.lineTo(padding + arrowLength, padding + arrowLength);
+    ctx.stroke();
+    
+    // Top-right arrow
+    ctx.beginPath();
+    ctx.moveTo(width - baseLineOffset + arrowOffsetFromBase, baseLineOffset - arrowOffsetFromBase);
+    ctx.lineTo(width - padding - arrowLength, padding + arrowLength);
+    ctx.stroke();
+    
+    // Bottom-left arrow
+    ctx.beginPath();
+    ctx.moveTo(baseLineOffset - arrowOffsetFromBase, height - baseLineOffset + arrowOffsetFromBase);
+    ctx.lineTo(padding + arrowLength, height - padding - arrowLength);
+    ctx.stroke();
+
+    // Bottom-right arrow
+    ctx.beginPath();
+    ctx.moveTo(width - baseLineOffset + arrowOffsetFromBase, height - baseLineOffset + arrowOffsetFromBase);
+    ctx.lineTo(width - padding - arrowLength, height - padding - arrowLength);
+    ctx.stroke();
+
+    // Reset line width
+    ctx.lineWidth = 1;
 }
 
-// Example of sending a move
-canvas.addEventListener('click', (event) => {
-    // This is a placeholder for your actual game move logic
-    // For example, calculating striker position and velocity
-    const moveData = {
-        strikerX: event.offsetX,
-        strikerY: event.offsetY,
-        velocity: { x: 5, y: -5 }
-    };
-
-    // Send the move to the server
-    socket.emit('gameMove', moveData);
-    gameStatusP.textContent = "You made a move. Waiting for opponent...";
-});
+// ... (keep the canvas.addEventListener for sending moves) ...
