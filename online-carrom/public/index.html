@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Online Carrom Board</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <h1>Online Carrom</h1>
+    <div id="lobby">
+        <h2>Game Lobby</h2>
+        <button id="createRoomBtn">Create New Game</button>
+        <div id="join-section">
+            <input type="text" id="roomCodeInput" placeholder="Enter Team Code">
+            <button id="joinRoomBtn">Join Game</button>
+        </div>
+        <p id="status"></p>
+    </div>
+
+    <div id="game-container" style="display: none;">
+         <canvas id="carrom-board" width="600" height="600"></canvas>
+         <p id="game-status"></p>
+    </div>
+
+    <script src="/socket.io/socket.io.js"></script>
+    <script src="client.js"></script>
+</body>
+</html>

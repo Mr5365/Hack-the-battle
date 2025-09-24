@@ -1,0 +1,114 @@
+import random
+import os
+import time
+
+# List of intentionally vague or funny prompts
+prompts = [
+    "A very sad potato",
+    "The secret life of a paperclip",
+    "Anxiety on a Tuesday",
+    "What's behind the fridge?",
+    "A majestic garbage can",
+    "My coffee hates me"
+]
+
+# Set of tools (for a text-based game, these are more like 'rules')
+tools = "You have 50 words to describe your masterpiece."
+
+def clear_screen():
+    # Clears the terminal screen for better readability
+    os.system('cls' if os.name == 'nt' else 'clear')
+
+def get_player_names():
+    # Gathers player names to set up the game
+    num_players = int(input("Enter the number of players: "))
+    players = {}
+    for i in range(num_players):
+        name = input(f"Enter name for Player {i + 1}: ")
+        players[name] = 0 # Initialize score
+    return players
+
+def play_round(players):
+    clear_screen()
+    
+    # 1. Prompt Phase
+    current_prompt = random.choice(prompts)
+    print(f"--- New Round ---")
+    print(f"The prompt is: '{current_prompt}'")
+    print(f"Tools: {tools}\n")
+
+    # 2. Creation Phase
+    creations = {}
+    print("Each player will now create their art. Please don't let others see what you're writing.")
+    input("Press Enter to begin the creation phase...")
+
+    for player_name in players:
+        clear_screen()
+        print(f"Player: {player_name}")
+        print(f"Prompt: '{current_prompt}'")
+        creation = input("Describe your art (max 50 words): ")
+        creations[player_name] = creation
+    
+    clear_screen()
+    print("All art has been created. Now for the voting!\n")
+
+    # 3. Voting Phase
+    # Display creations anonymously
+    creation_items = list(creations.items())
+    random.shuffle(creation_items)
+    
+    art_to_vote = {}
+    print("--- Creations to vote on ---")
+    for i, (player_name, creation) in enumerate(creation_items):
+        art_to_vote[i+1] = player_name # Map number to player name for voting
+        print(f"Art #{i+1}:\n\"{creation}\"\n")
+    
+    votes = {}
+    for voter_name in players:
+        while True:
+            try:
+                vote = int(input(f"{voter_name}, vote for your favorite art by number: "))
+                # Check if the vote is valid and not for the player's own art
+                if vote in art_to_vote and art_to_vote[vote] != voter_name:
+                    votes[voter_name] = art_to_vote[vote]
+                    break
+                else:
+                    print("Invalid vote. You cannot vote for yourself or an invalid number.")
+            except ValueError:
+                print("Please enter a number.")
+    
+    # Tally votes and update scores
+    vote_counts = {player_name: 0 for player_name in players}
+    for voter, winner in votes.items():
+        vote_counts[winner] += 1
+    
+    round_winner_name = max(vote_counts, key=vote_counts.get)
+    players[round_winner_name] += 1
+    
+    clear_screen()
+    print(f"--- Round Results ---")
+    for player_name, votes_received in vote_counts.items():
+        print(f"{player_name} received {votes_received} vote(s).")
+    print(f"\nRound winner: {round_winner_name}!\n")
+
+    input("Press Enter to continue to the next round.")
+
+def main():
+    print("Welcome to the Competitive Art Game!")
+    players = get_player_names()
+    num_rounds = int(input("How many rounds would you like to play? "))
+    
+    for round_num in range(num_rounds):
+        play_round(players)
+    
+    # Game Over: display final scores
+    clear_screen()
+    print("--- Final Scores ---")
+    winner = max(players, key=players.get)
+    for player_name, score in players.items():
+        print(f"{player_name}: {score} points")
+    
+    print(f"\nAnd the ultimate art master is... {winner} with {players[winner]} points!")
+
+if __name__ == "__main__":
+    main()
