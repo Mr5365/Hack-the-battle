@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Hand Cricket Game</title>
+<style>
+    body {
+        font-family: Arial, sans-serif;
+        text-align: center;
+        /* --- START OF CHANGES --- */
+        background: linear-gradient(to right, #ece9e6, #ffffff); /* Light grey to white gradient */
+        /* --- END OF CHANGES --- */
+        margin: 0;
+        padding: 20px;
+    }
+    h1 { color: #333; }
+    .hands button, .toss button {
+        padding: 10px 20px;
+        margin: 5px;
+        font-size: 16px;
+        cursor: pointer;
+        border: 1px solid #ccc;
+        border-radius: 5px;
+        background-color: #e9e9e9;
+        transition: background-color 0.2s ease; /* Added for smoother hover */
+    }
+    .hands button:hover, .toss button:hover {
+        background-color: #dcdcdc;
+    }
+    #log {
+        max-width: 500px;
+        margin: 20px auto;
+        padding: 10px;
+        background: #fff;
+        border: 1px solid #ccc;
+        height: 200px;
+        overflow-y: auto;
+        text-align: left;
+        border-radius: 5px;
+        box-shadow: 0 2px 5px rgba(0,0,0,0.1); /* Added subtle shadow */
+    }
+    .score {
+        display: inline-block;
+        transition: all 0.5s ease;
+        font-weight: bold;
+        color: #0056b3; /* Added some color to scores */
+    }
+    /* Added some styling for the main score h2 */
+    h2#score {
+        background-color: #fff;
+        padding: 10px;
+        border-radius: 5px;
+        box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+        display: inline-block; /* To make padding effective */
+    }
+    /* Added style for the restart button */
+    button[onclick="resetGame()"] {
+        margin-top: 20px;
+        background-color: #007bff;
+        color: white;
+        border: none;
+        padding: 12px 25px;
+        font-size: 18px;
+        border-radius: 8px;
+        box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        transition: background-color 0.3s ease, transform 0.2s ease;
+    }
+    button[onclick="resetGame()"]:hover {
+        background-color: #0056b3;
+        transform: translateY(-2px);
+    }
+
+</style>
+</head>
+<body>
+
+<h1>Hand Cricket Game</h1>
+
+<div class="toss" id="tossDiv">
+    <h3>Choose Head or Tail to toss:</h3>
+    <button onclick="coinToss('head')">Head</button>
+    <button onclick="coinToss('tail')">Tail</button>
+</div>
+
+<h2 id="score">Player: <span class="score" id="playerScore">0</span> | Computer: <span class="score" id="computerScore">0</span></h2>
+<h3 id="innings"></h3>
+<h3 id="target"></h3>
+
+<div class="hands" id="playerHands" style="display:none;">
+    <h3>Choose your run (1-6):</h3>
+    <button onclick="play(1)">1</button>
+    <button onclick="play(2)">2</button>
+    <button onclick="play(3)">3</button>
+    <button onclick="play(4)">4</button>
+    <button onclick="play(5)">5</button>
+    <button onclick="play(6)">6</button>
+</div>
+
+<div id="log"></div>
+<button onclick="resetGame()">Restart Game</button>
+
+<script>
+let playerScore = 0;
+let computerScore = 0;
+let playerBatting = true;
+let gameOver = false;
+let tossDone = false;
+let secondInnings = false;
+let targetScore = null;
+
+function logMessage(msg) {
+    const logDiv = document.getElementById('log');
+    logDiv.innerHTML += msg + "<br>";
+    logDiv.scrollTop = logDiv.scrollHeight;
+}
+
+function coinToss(choice) {
+    if (tossDone) return;
+
+    const tossResult = Math.random() < 0.5 ? 'head' : 'tail';
+    logMessage(`Coin toss result: ${tossResult}`);
+
+    if (choice === tossResult) {
+        logMessage("You won the toss! 🎉");
+        const playerChoice = confirm("Do you want to bat first? OK = Bat, Cancel = Field");
+        playerBatting = playerChoice;
+        logMessage(`You chose to ${playerBatting ? 'bat' : 'field'} first.`);
+    } else {
+        logMessage("Computer won the toss! 💻");
+        const computerChoosesToBat = Math.random() < 0.5;
+        playerBatting = !computerChoosesToBat;
+        logMessage(`Computer chooses to ${computerChoosesToBat ? 'bat' : 'field'} first.`);
+    }
+
+    tossDone = true;
+    document.getElementById('tossDiv').style.display = 'none';
+    document.getElementById('innings').innerText = playerBatting ? "You are batting first!" : "Computer is batting first!";
+    document.getElementById('playerHands').style.display = 'block';
+    document.getElementById('target').innerText = "";
+}
+
+function animateScore(id, oldScore, newScore) {
+    let current = oldScore;
+    const increment = newScore > oldScore ? 1 : -1;
+    const interval = setInterval(() => {
+        current += increment;
+        document.getElementById(id).innerText = current;
+        if (current === newScore) clearInterval(interval);
+    }, 50);
+}
+
+function updateTarget() {
+    if (secondInnings) {
+        const remaining = targetScore - (playerBatting ? playerScore : computerScore);
+        document.getElementById('target').innerText = `Target remaining: ${remaining > 0 ? remaining : 0}`;
+    } else {
+        document.getElementById('target').innerText = "";
+    }
+}
+
+function play(playerChoice) {
+    if (gameOver || !tossDone) return;
+
+    const computerChoice = Math.floor(Math.random() * 6) + 1;
+    logMessage(`You chose ${playerChoice}, Computer chose ${computerChoice}`);
+
+    if (playerChoice === computerChoice) {
+        if (playerBatting) {
+            logMessage("You are out! 🏏");
+        } else {
+            logMessage("Computer is out! 🏏");
+        }
+
+        if (!secondInnings) {
+            secondInnings = true;
+            targetScore = (playerBatting ? playerScore : computerScore) + 1;
+            playerBatting = !playerBatting;
+            document.getElementById('innings').innerText = playerBatting ? "Your turn to bat!" : "Computer's turn to bat!";
+            logMessage(`Target for second innings: ${targetScore}`);
+        } else {
+            gameOver = true;
+            declareWinner();
+        }
+    } else {
+        if (playerBatting) {
+            const oldScore = playerScore;
+            playerScore += playerChoice;
+            animateScore('playerScore', oldScore, playerScore);
+        } else {
+            const oldScore = computerScore;
+            computerScore += computerChoice;
+            animateScore('computerScore', oldScore, computerScore);
+        }
+        if (secondInnings) {
+            const chasingScore = playerBatting ? playerScore : computerScore;
+            if (chasingScore >= targetScore) {
+                gameOver = true;
+                declareWinner();
+            }
+        }
+    }
+
+    updateTarget();
+}
+
+function declareWinner() {
+    let message = "";
+    if (playerScore > computerScore) {
+        message = "🎉 You win!";
+    } else if (computerScore > playerScore) {
+        message = "💻 Computer wins!";
+    } else {
+        message = "🤝 It's a tie!";
+    }
+    logMessage(message);
+    document.getElementById('innings').innerText = "Game Over!";
+    document.getElementById('target').innerText = "";
+    document.getElementById('playerHands').style.display = 'none';
+}
+
+function resetGame() {
+    playerScore = 0;
+    computerScore = 0;
+    playerBatting = true;
+    gameOver = false;
+    tossDone = false;
+    secondInnings = false;
+    targetScore = null;
+    document.getElementById('playerScore').innerText = 0;
+    document.getElementById('computerScore').innerText = 0;
+    document.getElementById('innings').innerText = "";
+    document.getElementById('target').innerText = "";
+    document.getElementById('log').innerHTML = "";
+    document.getElementById('tossDiv').style.display = 'block';
+    document.getElementById('playerHands').style.display = 'none';
+}
+
+// Keyboard access for 1-6
+document.addEventListener('keydown', (e) => {
+    if (e.key >= '1' && e.key <= '6') {
+        play(parseInt(e.key));
+    }
+});
+</script>
+
+</body>
+</html>
