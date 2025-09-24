@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ping Pong Game</title>
+    <link rel="stylesheet" href="style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@700&family=Roboto:wght@400&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div class="game-container">
+        <h1 class="game-title">Ping Pong</h1>
+        
+        <div class="scoreboard">
+            <span id="playerScore">0</span>
+            <span class="score-separator">-</span>
+            <span id="computerScore">0</span>
+        </div>
+
+        <canvas id="gameCanvas" width="600" height="450"></canvas>
+        
+        <div class="game-controls">
+            <button id="restartBtn" class="control-btn">Restart Game</button>
+            <a href="../page3.html" class="control-btn">Return to Home</a>
+        </div>
+    </div>
+
+    <script src="game.js"></script>
+</body>
+</html>

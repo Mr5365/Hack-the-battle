@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Select Game Mode</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #f0f0f0; /* Light gray background */
+            color: #333;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 100vh;
+        }
+
+        .container {
+            width: 80%;
+            max-width: 800px;
+            margin: auto;
+            text-align: center;
+            padding: 40px;
+        }
+
+        h1 {
+            font-size: 2.5rem;
+            color: #1a73e8;
+            margin-bottom: 20px;
+        }
+
+        .description {
+            font-size: 1.2rem;
+            line-height: 1.6;
+            margin-bottom: 40px;
+        }
+
+        .game-modes {
+            display: flex;
+            justify-content: space-around;
+            gap: 20px;
+            flex-wrap: wrap;
+        }
+
+        .mode-button {
+            background-color: #fff;
+            border: 2px solid #ccc;
+            border-radius: 10px;
+            padding: 20px;
+            flex: 1;
+            min-width: 200px;
+            cursor: pointer;
+            text-decoration: none;
+            color: #333;
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+        }
+
+        .mode-button:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 8px 15px rgba(0, 0, 0, 0.1);
+        }
+
+        .mode-button h2 {
+            margin-top: 0;
+            font-size: 1.5rem;
+            color: #1a73e8;
+        }
+
+        .mode-button p {
+            font-size: 1rem;
+            color: #666;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>WELCOME</h1>
+        <p class="description">Select your preference below to get started</p>
+
+        <div class="game-modes">
+            <a href="page3.html" class="mode-button">
+                <h2>Single Player</h2>
+                <p>Bored?Lets play some games gainst the machine.</p>
+            </a>
+            <a href="#" class="mode-button">
+                <h2>Make the choice</h2>
+                <p>Confusion?
+                    Make you choice here.</p>
+            </a>
+            <a href="#" class="mode-button">
+                <h2>About US</h2>
+                <p>Get to know about us!.</p>
+            </a>
+        </div>
+    </div>
+</body>
+</html>
