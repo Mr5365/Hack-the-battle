@@ -70,8 +70,8 @@ function initBoard() {
         position: 'start',
         onDrop: onDrop,
         orientation: playerColor === 'w' ? 'white' : 'black',
-        // Add this line below to specify the piece image location:
-        pieceTheme: 'https://unpkg.com/chessboard-js@1.0.0/img/chesspieces/wikipedia/{piece}.png'
+        // This is the 100% correct URL
+        pieceTheme: 'https://unpkg.com/@chrisoakman/chessboardjs@1.0.0/img/chesspieces/wikipedia/{piece}.png'
     };
     board = Chessboard('myBoard', config);
 }
