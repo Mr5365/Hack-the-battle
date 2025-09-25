@@ -1,0 +1,94 @@
+/* style.css */
+body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+    margin: 0;
+    background-color: #2c3e50;
+    color: #ecf0f1;
+}
+
+/* Lobby Styles */
+#lobby {
+    text-align: center;
+}
+#join-form {
+    margin-top: 15px;
+    display: flex;
+    gap: 10px;
+}
+#room-code-input {
+    padding: 10px;
+    font-size: 1em;
+    border: 1px solid #7f8c8d;
+    background-color: #34495e;
+    color: white;
+    border-radius: 5px;
+}
+#create-room, #join-room {
+    padding: 10px 20px;
+    font-size: 1em;
+    border: none;
+    border-radius: 5px;
+    background-color: #27ae60;
+    color: white;
+    cursor: pointer;
+}
+#create-room:hover, #join-room:hover {
+    background-color: #229954;
+}
+
+/* Board Styles */
+#board {
+    display: grid;
+    grid-template-columns: repeat(3, 100px);
+    grid-template-rows: repeat(3, 100px);
+    gap: 5px;
+    background-color: #34495e;
+    padding: 5px;
+    border-radius: 5px;
+}
+
+.cell {
+    width: 100px;
+    height: 100px;
+    background-color: #ecf0f1;
+    border-radius: 5px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    font-size: 3em;
+    font-weight: bold;
+    cursor: pointer;
+    transition: background-color 0.2s;
+}
+
+.cell:hover {
+    background-color: #bdc3c7;
+}
+
+.cell.X { color: #e74c3c; }
+.cell.O { color: #3498db; }
+
+#status {
+    margin-bottom: 20px;
+    font-size: 1.5em;
+    min-height: 1.5em;
+}
+
+#play-again {
+    margin-top: 20px;
+    padding: 10px 20px;
+    font-size: 1em;
+    border: none;
+    border-radius: 5px;
+    background-color: #1abc9c;
+    color: white;
+    cursor: pointer;
+}
+#play-again:hover {
+    background-color: #16a085;
+}

@@ -1,0 +1,711 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Shinchan's Cosmic Adventure</title>
+  <style>
+    :root {
+      --bg-space: #000028;
+      --star-color: #ffffff;
+      --ui-bg: rgba(30,30,50,0.85);
+      --text-color: #ffeeaa;
+      --button-bg: #ff5500;
+      --button-hover: #ffa033;
+      --ground-color: #553311;
+      font-family: "Segoe UI", Roboto, sans-serif;
+    }
+    html, body {
+      height: 100%; margin: 0; background: var(--bg-space); overflow: hidden;
+    }
+    #gameWrap { position: relative; width:100%; height:100%; display:flex; justify-content: center; align-items: center; }
+    canvas { background: var(--bg-space); border-radius: 8px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
+    #topUI {
+      position: absolute; top:10px; left:50%; transform: translateX(-50%);
+      width: 900px; max-width: 95%; display: flex; justify-content: space-between; visibility: hidden;
+      pointer-events: none; /* Allows clicks to pass through */
+    }
+    .panel {
+      background: var(--ui-bg); color: var(--text-color); padding: 8px 12px; border-radius: 8px;
+      font-size: 16px; border: 1px solid #666;
+    }
+    button {
+      background: var(--button-bg); border: 0; padding: 8px 14px; border-radius: 6px;
+      cursor: pointer; font-weight: 600; color: #111; font-size: 16px;
+      transition: background 0.1s;
+      pointer-events: all; /* Restore clicks for buttons */
+    }
+    button:hover {
+      background: var(--button-hover);
+    }
+    #hint {
+      position: absolute; bottom: 20px; width: 900px; max-width:95%;
+      text-align: center; color: #ccc; visibility: hidden;
+      font-size: 14px;
+      pointer-events: none;
+    }
+    #overlay {
+      position: absolute; top:0; left:0; width:100%; height:100%;
+      display: flex; align-items: center; justify-content: center;
+      background: rgba(0,0,0,0.8);
+      z-index: 100;
+    }
+    #menu {
+      background: #181830;
+      padding: 40px 60px; border-radius: 12px; text-align: center;
+      color: var(--text-color); border: 3px solid var(--button-bg);
+      box-shadow: 0 0 25px rgba(255,100,0,0.7);
+    }
+    #menu h1 {
+      margin: 0 0 20px 0; font-size: 38px; text-shadow: 2px 2px 4px #000;
+      color: #ffcc00; /* Shinchan theme */
+    }
+    #menu p {
+      margin: 15px 0 25px 0; font-size: 20px;
+    }
+    #menu button {
+      padding: 12px 25px; font-size: 18px;
+    }
+    #loading-bar-container {
+      width: 80%;
+      height: 15px;
+      background-color: #333;
+      border-radius: 5px;
+      margin: 10px auto;
+      overflow: hidden;
+    }
+    #loading-bar {
+      height: 100%;
+      width: 0%;
+      background-color: var(--button-bg);
+      border-radius: 5px;
+      transition: width 0.1s linear;
+    }
+  </style>
+</head>
+<body>
+  <div id="gameWrap">
+    <canvas id="game" width="900" height="500"></canvas>
+
+    <div id="topUI">
+      <div class="panel">Score: <span id="score">0</span></div>
+      <div class="panel">Lives: <span id="lives">3</span></div>
+      <div class="panel">Special: <span id="power">0</span>/100</div>
+      <div class="panel">Shield: <span id="shieldTime">0s</span></div>
+      <div><button id="pauseHomeBtn">Home</button></div>
+    </div>
+
+    <div id="hint">Use ← / → (A/D) to move, ↑ (W) to jump/double jump. ↓ (S) for Dash. Space for Butt Dance. Collect food, avoid parents!</div>
+
+    <div id="overlay">
+      <div id="menu">
+        <h1>Shinchan's Cosmic Adventure</h1>
+        <p>Loading assets...</p>
+        <div id="loading-bar-container"><div id="loading-bar"></div></div>
+        <button id="startBtn" disabled>Start Game</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const canvas = document.getElementById('game');
+    const ctx = canvas.getContext('2d');
+    const W = canvas.width, H = canvas.height;
+    const GROUND_Y = H - 60; // Shinchan stands on this Y coordinate
+
+    // --- Asset Loading ---
+    const images = {};
+    const imageUrls = {
+        shinchan: 'shinchan.png', // Local image
+        parent: 'parents.png',     // Local image
+        snack: 'https://i.ibb.co/gJFcf5J/chocochip-sprite.png', // External
+        bone: 'https://i.ibb.co/LgQZq0M/bone-sprite.png',     // External
+        shield: 'https://i.ibb.co/g7S1D3q/shield-icon.png' // External
+    };
+    let imagesLoadedCount = 0;
+    const totalImages = Object.keys(imageUrls).length;
+    const loadingBar = document.getElementById('loading-bar');
+    const startBtn = document.getElementById('startBtn');
+    const menuPara = document.querySelector('#menu p');
+
+    function onImageLoad() {
+        imagesLoadedCount++;
+        const progress = (imagesLoadedCount / totalImages) * 100;
+        loadingBar.style.width = `${progress}%`;
+        if (imagesLoadedCount === totalImages) {
+            console.log("All images loaded successfully!");
+            startBtn.disabled = false;
+            menuPara.textContent = 'Ready!';
+        }
+    }
+
+    function loadImage(key, url) {
+        images[key] = new Image();
+        images[key].src = url;
+        images[key].onload = onImageLoad;
+        images[key].onerror = () => {
+            console.error(`Failed to load image: ${key} from ${url}. Using fallback.`);
+            onImageLoad(); // Still count it as loaded to not block game
+            // Fallback: create a dummy image to prevent errors
+            images[key] = { complete: true, width: 50, height: 50, src: 'data:image/gif;base64,R0lGODlhAQABAAD/ACwAAAAAAQABAAACADs=' }; 
+        };
+    }
+
+    for (const key in imageUrls) {
+        loadImage(key, imageUrls[key]);
+    }
+
+    // --- Input Handling ---
+    let keys = {};
+    let playerFacingLeft = false;
+    let lastPlayerVx = 0; // To detect direction change for animation
+    window.addEventListener('keydown', e => {
+      keys[e.key] = true;
+      keys[e.key.toLowerCase()] = true; // Handle both 'W' and 'w'
+      const kl = e.key.toLowerCase();
+      if (["arrowup","arrowdown","arrowleft","arrowright"," ", "w","a","s","d"].includes(kl)) {
+        e.preventDefault(); // Prevent scrolling
+      }
+    });
+    window.addEventListener('keyup', e => {
+      keys[e.key] = false;
+      keys[e.key.toLowerCase()] = false;
+    });
+
+    // --- Utility Functions ---
+    function varColor(name, defaultColor) {
+      try {
+        return getComputedStyle(document.documentElement).getPropertyValue(name).trim() || defaultColor;
+      } catch (e) {
+        return defaultColor;
+      }
+    }
+
+    // --- Background Elements ---
+    const stars = [];
+    const asteroidsBG = [];
+    function initBackground() {
+      stars.length = 0;
+      asteroidsBG.length = 0;
+      for (let i = 0; i < 150; i++) { // More stars
+        stars.push({
+          x: Math.random() * W,
+          y: Math.random() * H,
+          r: Math.random() * 1.5 + 0.5,
+          speed: Math.random() * 30 + 15
+        });
+      }
+      for (let i = 0; i < 12; i++) { // More asteroids
+        asteroidsBG.push({
+          x: Math.random() * W,
+          y: Math.random() * (GROUND_Y - 50),
+          size: Math.random() * 50 + 30,
+          vx: -(Math.random() * 15 + 8),
+          rotate: Math.random() * Math.PI * 2,
+          vrot: (Math.random() * 0.5 - 0.25) * 0.03
+        });
+      }
+    }
+
+    // --- Game Entities ---
+    class Entity {
+      constructor(x, y, w, h, kind, spriteKey, frameCount = 1) {
+        this.x = x;
+        this.y = y;
+        this.w = w;
+        this.h = h;
+        this.kind = kind;
+        this.sprite = images[spriteKey];
+        this.vx = 0;
+        this.vy = 0;
+        this.remove = false;
+        this.stunned = 0;
+        this.flash = 0; // For temporary visual flashes
+        this.frameCount = frameCount; // For sprite animation
+        this.currentFrame = 0;
+        this.frameTimer = 0;
+        this.frameRate = 0.1; // Seconds per frame
+      }
+
+      draw() {
+        if (!this.sprite || !this.sprite.complete) {
+            // Fallback to simple rectangle if image not loaded
+            ctx.fillStyle = this.color || '#888';
+            if (this.kind === 'snack') ctx.fillStyle = '#ffee66';
+            if (this.kind === 'bone') ctx.fillStyle = '#aaffff';
+            ctx.fillRect(this.x, this.y, this.w, this.h);
+            return;
+        }
+
+        ctx.save();
+        if (this.flash > 0) ctx.filter = 'brightness(2.0)';
+        else if (this.stunned > 0) ctx.filter = 'brightness(1.5) saturate(0.5)';
+
+        let sx = 0; // Source X for sprite sheet
+        if (this.frameCount > 1) {
+            sx = Math.floor(this.currentFrame) * (this.sprite.width / this.frameCount);
+        }
+        const frameWidth = this.sprite.width / this.frameCount;
+
+        ctx.drawImage(this.sprite,
+                      sx, 0, frameWidth, this.sprite.height,
+                      this.x, this.y, this.w, this.h);
+        ctx.restore();
+
+        if (this.stunned > 0 && this.kind === 'parent') {
+            ctx.fillStyle = '#fff';
+            ctx.font = '14px "Segoe UI"';
+            ctx.fillText('Zzz', this.x + this.w / 2 - 10, this.y - 10);
+        }
+      }
+
+      updateAnimation(dt) {
+          if (this.frameCount > 1) {
+              this.frameTimer += dt;
+              if (this.frameTimer >= this.frameRate) {
+                  this.currentFrame = (this.currentFrame + 1) % this.frameCount;
+                  this.frameTimer = 0;
+              }
+          }
+      }
+
+      intersects(o) {
+        // AABB collision detection with small padding
+        const padding = 5; 
+        return !(this.x + this.w - padding < o.x + padding || this.x + padding > o.x + o.w - padding ||
+                 this.y + this.h - padding < o.y + padding || this.y + padding > o.y + o.h - padding);
+      }
+    }
+
+    // --- Game State Variables ---
+    let player, entities;
+    let score, lives, buttMeter, shiroMeter;
+    let spawnTimer, difficulty;
+    let lastTime;
+    let gameState = 'menu';
+    let hitInvulnerability = 0;
+    let jumpCount = 0;
+    let dashCooldown = 0;
+    let dashDuration = 0;
+    let shieldActive = 0; // Time remaining for shield power-up
+
+    // --- UI Elements ---
+    const overlay = document.getElementById('overlay');
+    const menu = document.getElementById('menu');
+    const pauseHomeBtn = document.getElementById('pauseHomeBtn');
+    const topUI = document.getElementById('topUI');
+    const hint = document.getElementById('hint');
+    const scoreEl = document.getElementById('score');
+    const livesEl = document.getElementById('lives');
+    const powerEl = document.getElementById('power');
+    const shieldTimeEl = document.getElementById('shieldTime');
+
+
+    // --- Game Logic Functions ---
+    function resetGame() {
+      player = { 
+        x: 120, y: GROUND_Y - 50, w: 45, h: 50, 
+        vx: 0, vy: 0, 
+        onGround: true, 
+        flashing: false, 
+        currentFrame: 0, frameTimer: 0, frameRate: 0.1, 
+        spriteFrames: { idle: 0, run: [0,1,2,3], jump: 4 }, // Assume sprite sheet frames
+        dashState: 0, // 0: ready, 1: dashing, 2: cooldown
+      };
+      entities = [];
+      score = 0;
+      lives = 3;
+      buttMeter = 0;
+      shiroMeter = 0;
+      spawnTimer = 0;
+      difficulty = 1;
+      hitInvulnerability = 0;
+      jumpCount = 0;
+      dashCooldown = 0;
+      dashDuration = 0;
+      shieldActive = 0;
+
+      scoreEl.innerText = score;
+      livesEl.innerText = lives;
+      powerEl.innerText = Math.floor(buttMeter);
+      shieldTimeEl.innerText = '0s';
+      lastTime = performance.now();
+      playerFacingLeft = false; // Reset direction
+    }
+
+    function startGame() {
+      if (imagesLoadedCount !== totalImages) return; // Ensure assets are loaded
+      resetGame();
+      initBackground();
+      gameState = 'running';
+      overlay.style.display = 'none';
+      topUI.style.visibility = 'visible';
+      hint.style.visibility = 'visible';
+      requestAnimationFrame(gameLoop);
+    }
+
+    function returnToMenu() {
+      gameState = 'menu';
+      setupMenu(false);
+    }
+
+    function setupMenu(isGameOver = false) {
+      overlay.style.display = 'flex';
+      topUI.style.visibility = 'hidden';
+      hint.style.visibility = 'hidden';
+      const startBtnDisabled = imagesLoadedCount !== totalImages ? 'disabled' : '';
+      const menuContent = isGameOver ?
+        `<h1>Game Over</h1><p>Final Score: ${score}</p><button id="startBtn">Play Again</button><button id="btnHome" style="margin-left: 10px;">Home</button>` :
+        `<h1>Shinchan's Cosmic Adventure</h1><p>${imagesLoadedCount !== totalImages ? 'Loading assets...' : 'Ready!'}</p><div id="loading-bar-container"><div id="loading-bar" style="width:${(imagesLoadedCount / totalImages) * 100}%;"></div></div><button id="startBtn" ${startBtnDisabled}>Start Game</button>`;
+      
+      menu.innerHTML = menuContent;
+      document.getElementById('startBtn').addEventListener('click', startGame);
+      const btnHome = document.getElementById('btnHome');
+      if (btnHome) {
+        btnHome.addEventListener('click', returnToMenu);
+      }
+    }
+
+    // Initial menu setup (will be called after images load if needed)
+    setupMenu(false); 
+    pauseHomeBtn.addEventListener('click', returnToMenu);
+
+    function spawnEntity() {
+      const r = Math.random();
+      const baseX = W + Math.random() * 200;
+      if (r < 0.40) { // Snack
+        const s = new Entity(baseX, GROUND_Y - 30, 25, 25, 'snack', 'snack', 1);
+        s.vx = - (100 + difficulty * 25);
+        entities.push(s);
+      } else if (r < 0.55) { // Bone
+        const b = new Entity(baseX, GROUND_Y - 30, 28, 18, 'bone', 'bone', 1);
+        b.vx = - (90 + difficulty * 20);
+        entities.push(b);
+      } else if (r < 0.90) { // Parent
+        const p = new Entity(baseX, GROUND_Y - 55, 40, 55, 'parent', 'parent', 2); // 2 frames for parent animation
+        p.vx = - (130 + difficulty * 30);
+        entities.push(p);
+      } else { // New: Power-up (Shield)
+          const shield = new Entity(baseX, GROUND_Y - 80 - Math.random() * 50, 30, 30, 'powerup', 'shield', 1);
+          shield.vx = - (100 + difficulty * 15);
+          entities.push(shield);
+      }
+    }
+
+    function gameLoop(ts) {
+      if (gameState !== 'running') return;
+      const dt = (ts - lastTime) / 1000;
+      lastTime = ts;
+      update(dt);
+      draw();
+      if (lives > 0) requestAnimationFrame(gameLoop);
+      else gameOver();
+    }
+
+    function update(dt) {
+      difficulty += dt * 0.015; // Slightly faster difficulty increase
+
+      // Background movement
+      stars.forEach(s => {
+        s.x -= s.speed * dt;
+        if (s.x < 0) { s.x = W; s.y = Math.random() * H; }
+      });
+      asteroidsBG.forEach(a => {
+        a.x += a.vx * dt;
+        a.rotate += a.vrot * dt;
+        if (a.x + a.size < 0) { a.x = W + Math.random() * 200; a.y = Math.random() * (GROUND_Y - 50); }
+      });
+
+      // --- Player Movement & Actions ---
+      const playerVxBefore = player.vx;
+      const moveSpeed = 300;
+      let isMoving = false;
+
+      // Reset horizontal velocity
+      player.vx = 0; 
+
+      if (keys['ArrowLeft'] || keys['a']) {
+        player.vx = -moveSpeed;
+        playerFacingLeft = true;
+        isMoving = true;
+      } else if (keys['ArrowRight'] || keys['d']) {
+        player.vx = moveSpeed;
+        playerFacingLeft = false;
+        isMoving = true;
+      }
+
+      // Dash/Roll
+      if ((keys['ArrowDown'] || keys['s']) && player.dashState === 0) {
+          player.dashState = 1; // Start dash
+          dashDuration = 0.2; // Dash for 0.2 seconds
+          dashCooldown = 1.0; // 1 second cooldown
+          player.vx = playerFacingLeft ? -moveSpeed * 2.5 : moveSpeed * 2.5; // Faster dash
+          keys['ArrowDown'] = false; // Consume key press
+          keys['s'] = false;
+      }
+
+      if (player.dashState === 1) { // Currently dashing
+          dashDuration -= dt;
+          if (dashDuration <= 0) {
+              player.dashState = 2; // Enter cooldown
+              player.vx = 0; // Stop dash movement
+          }
+      } else if (player.dashState === 2) { // Dash cooldown
+          dashCooldown -= dt;
+          if (dashCooldown <= 0) {
+              player.dashState = 0; // Ready for next dash
+          }
+      }
+
+      // Jump
+      if ((keys['ArrowUp'] || keys['w'])) {
+        if (player.onGround) {
+            player.vy = -550;
+            player.onGround = false;
+            jumpCount = 1; // First jump
+            keys['ArrowUp'] = false; // Consume key press to prevent continuous jump
+            keys['w'] = false;
+        } else if (jumpCount === 1) { // Double jump
+            player.vy = -450; // Slightly weaker second jump
+            jumpCount = 2;
+            keys['ArrowUp'] = false;
+            keys['w'] = false;
+        }
+      }
+
+      // Physics
+      player.vy += 1200 * dt; // Gravity
+      player.y += player.vy * dt;
+      player.x += player.vx * dt;
+
+      // Ground collision
+      if (player.y + player.h >= GROUND_Y) {
+        player.y = GROUND_Y - player.h;
+        player.vy = 0;
+        player.onGround = true;
+        jumpCount = 0; // Reset jump count
+      } else {
+        player.onGround = false;
+      }
+
+      // Boundaries
+      player.x = Math.max(10, Math.min(player.x, W - player.w - 10));
+
+      // Player Animation State
+      if (!player.onGround) {
+          player.currentFrame = player.spriteFrames.jump;
+      } else if (isMoving) {
+          player.frameRate = 0.08;
+          player.frameTimer += dt;
+          if (player.frameTimer >= player.frameRate) {
+              player.currentFrame = player.spriteFrames.run[ (player.spriteFrames.run.indexOf(player.currentFrame) + 1) % player.spriteFrames.run.length ];
+              player.frameTimer = 0;
+          }
+      } else {
+          player.frameRate = 0.15; // Slower idle animation
+          player.frameTimer += dt;
+          if (player.frameTimer >= player.frameRate) {
+              player.currentFrame = player.spriteFrames.run[ (player.spriteFrames.run.indexOf(player.currentFrame) + 1) % player.spriteFrames.run.length ];
+              player.frameTimer = 0;
+          }
+      }
+      // If player changes direction while standing still, snap to first idle frame
+      if (player.vx !== 0 && lastPlayerVx === 0) player.currentFrame = player.spriteFrames.run[0];
+      if (player.vx === 0 && lastPlayerVx !== 0) player.currentFrame = player.spriteFrames.run[0];
+      lastPlayerVx = player.vx;
+
+
+      // Special / Butt Dance
+      if (keys[' '] && buttMeter >= 100) {
+        entities.forEach(e => {
+          if (e.kind === 'parent' && Math.abs(e.x - player.x) < 250) { // Wider stun radius
+            e.vx = 0;
+            e.stunned = 2.5; // Longer stun
+          }
+        });
+        buttMeter = 0;
+        powerEl.innerText = Math.floor(buttMeter);
+        keys[' '] = false; // Consume key
+      }
+      
+      // Update entities
+      spawnTimer -= dt;
+      if (spawnTimer <= 0) {
+        spawnEntity();
+        spawnTimer = 0.8 - Math.min(0.65, difficulty * 0.02); // Faster spawn rate
+        if (spawnTimer < 0.2) spawnTimer = 0.2;
+      }
+
+      entities.forEach(e => {
+        e.updateAnimation(dt); // Update enemy animation
+        if (e.kind === 'parent' && e.stunned > 0) {
+          e.stunned -= dt;
+          if (e.stunned <= 0) {
+            e.stunned = 0;
+            e.vx = - (130 + difficulty * 30);
+          }
+        }
+        e.x += e.vx * dt;
+        if (e.flash > 0) e.flash -= dt;
+        if (e.x + e.w < -100) e.remove = true;
+      });
+
+      // Invulnerability and Flashing
+      if (hitInvulnerability > 0) {
+        hitInvulnerability -= dt;
+        player.flashing = Math.floor(hitInvulnerability * 10) % 2 === 0; // Flash effect
+      } else {
+        player.flashing = false;
+      }
+
+      // Shield power-up duration
+      if (shieldActive > 0) {
+          shieldActive -= dt;
+          shieldTimeEl.innerText = `${Math.ceil(shieldActive)}s`;
+          if (shieldActive <= 0) {
+              shieldActive = 0;
+              shieldTimeEl.innerText = '0s';
+          }
+      }
+
+      // Collision Detection
+      entities.forEach(e => {
+        if (e.remove) return;
+        if (player.intersects(e)) {
+          if (e.kind === 'snack') {
+            score += 10;
+            buttMeter = Math.min(100, buttMeter + 15);
+            e.remove = true;
+          } else if (e.kind === 'bone') {
+            shiroMeter += 30;
+            e.remove = true;
+            if (shiroMeter >= 100) {
+              shiroMeter = 0;
+              entities.forEach(s => { // Clear nearby enemies/snacks
+                if (s.kind === 'snack' && Math.abs(s.x - player.x) < 250) {
+                  score += 8;
+                  s.remove = true;
+                }
+                if (s.kind === 'parent' && Math.abs(s.x - player.x) < 300) {
+                  s.vx = (150 + difficulty * 30) * 2; // More forceful push
+                  s.stunned = 0.5; // Briefly stun even when pushed
+                }
+              });
+            }
+          } else if (e.kind === 'powerup' && e.sprite === images.shield) { // Shield power-up
+              e.remove = true;
+              shieldActive = Math.min(30, shieldActive + 10); // Add 10s, max 30s
+              shieldTimeEl.innerText = `${Math.ceil(shieldActive)}s`;
+          } else if (e.kind === 'parent') {
+            if (e.stunned > 0) { // Stunned parent hit
+              score += 25;
+              e.remove = true;
+            } else if (hitInvulnerability <= 0 && shieldActive <= 0) { // Hit by un-stunned parent, no shield
+              lives -= 1;
+              hitInvulnerability = 1.5;
+              livesEl.innerText = lives;
+              player.x = Math.max(80, player.x - 70); // Knockback
+              buttMeter = Math.max(0, buttMeter - 25);
+              e.remove = true; // Enemy is removed after hit
+            } else if (shieldActive > 0) { // Hit by parent, but shield is active
+                e.remove = true; // Enemy is still removed
+                score += 10; // Small bonus for blocking
+            }
+          }
+          scoreEl.innerText = score;
+        }
+      });
+
+      entities = entities.filter(e => !e.remove);
+      buttMeter = Math.min(100, buttMeter + dt * 5); // Faster butt meter charge
+      powerEl.innerText = Math.floor(buttMeter);
+    }
+
+    function draw() {
+      const COLOR_SPACE = varColor('--bg-space', '#000028');
+      const COLOR_STAR = varColor('--star-color', '#ffffff');
+      const COLOR_GROUND = varColor('--ground-color', '#553311');
+
+      ctx.fillStyle = COLOR_SPACE;
+      ctx.fillRect(0, 0, W, H);
+
+      ctx.fillStyle = COLOR_STAR;
+      stars.forEach(s => {
+        ctx.beginPath();
+        ctx.arc(s.x, s.y, s.r, 0, Math.PI * 2);
+        ctx.fill();
+      });
+
+      asteroidsBG.forEach(a => {
+        ctx.save();
+        ctx.translate(a.x + a.size/2, a.y + a.size/2);
+        ctx.rotate(a.rotate);
+        ctx.fillStyle = '#444444';
+        ctx.beginPath();
+        ctx.ellipse(0, 0, a.size/2, a.size * 0.3, 0, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+      });
+
+      ctx.fillStyle = COLOR_GROUND;
+      ctx.fillRect(0, GROUND_Y, W, H - GROUND_Y);
+      
+      entities.forEach(e => e.draw());
+
+      if (!player.flashing || shieldActive > 0) { // Always draw if shielded, or if not flashing due to hit
+        drawPlayer();
+      }
+    }
+
+    function drawPlayer() {
+        if (!images.shinchan || !images.shinchan.complete) {
+            // Fallback to rectangle if image not loaded
+            ctx.fillStyle = '#66ddff';
+            ctx.fillRect(player.x, player.y, player.w, player.h);
+            return;
+        }
+
+        ctx.save();
+        if (player.flashing) {
+            ctx.filter = 'brightness(2.0)'; // Bright flash when hit
+        } else if (shieldActive > 0) {
+            ctx.filter = 'hue-rotate(180deg) brightness(1.2)'; // Blueish tint for shield
+        }
+
+        let sx = 0; // Source X for sprite sheet
+        const frameWidth = images.shinchan.width / 5; // Assuming 5 frames: 4 run/idle + 1 jump
+        
+        if (!player.onGround) { // Jumping
+            sx = player.spriteFrames.jump * frameWidth;
+        } else { // Running/Idle
+            sx = player.currentFrame * frameWidth;
+        }
+
+        if (playerFacingLeft) {
+            ctx.scale(-1, 1);
+            ctx.drawImage(images.shinchan, 
+                          sx, 0, frameWidth, images.shinchan.height,
+                          -player.x - player.w, player.y, player.w, player.h);
+        } else {
+            ctx.drawImage(images.shinchan, 
+                          sx, 0, frameWidth, images.shinchan.height,
+                          player.x, player.y, player.w, player.h);
+        }
+        ctx.restore();
+
+        // Draw butt dance effect (can be a separate image later)
+        if (keys[' '] && buttMeter >= 100) {
+            ctx.fillStyle = 'rgba(255, 200, 0, 0.7)';
+            ctx.beginPath();
+            ctx.arc(player.x + player.w/2, player.y + player.h/2, 40 + Math.random() * 10, 0, Math.PI * 2); // Larger, more pronounced effect
+            ctx.fill();
+        }
+    }
+
+    function gameOver() {
+      gameState = 'gameover';
+      setupMenu(true);
+    }
+  </script>
+</body>
+</html>
