@@ -1,3 +1,4 @@
+// client.js
 const socket = io();
 
 const lobbyDiv = document.getElementById('lobby');
@@ -35,9 +36,8 @@ socket.on('roomCreated', (roomCode) => {
 });
 
 // Game Logic
-// **FIX IS HERE: Receive the roomCode when the game starts**
 socket.on('gameStart', ({ players, currentPlayer, roomCode }) => {
-    currentRoom = roomCode; // <-- Set the room code for the joining player
+    currentRoom = roomCode;
     lobbyDiv.style.display = 'none';
     gameContainer.style.display = 'block';
 
@@ -92,7 +92,8 @@ function updateTurnStatus(currentPlayer) {
 
 cells.forEach(cell => {
     cell.addEventListener('click', () => {
-        if (myTurn && !cell.textContent) {
+        // **THE FIX IS HERE**
+        if (myTurn && cell.textContent.trim() === '') {
             socket.emit('makeMove', { index: cell.dataset.index, roomCode: currentRoom });
         }
     });
