@@ -1,4 +1,3 @@
-// client.js
 const socket = io();
 
 const lobbyDiv = document.getElementById('lobby');
@@ -36,7 +35,9 @@ socket.on('roomCreated', (roomCode) => {
 });
 
 // Game Logic
-socket.on('gameStart', ({ players, currentPlayer }) => {
+// **FIX IS HERE: Receive the roomCode when the game starts**
+socket.on('gameStart', ({ players, currentPlayer, roomCode }) => {
+    currentRoom = roomCode; // <-- Set the room code for the joining player
     lobbyDiv.style.display = 'none';
     gameContainer.style.display = 'block';
 
@@ -73,7 +74,7 @@ socket.on('gameOver', (winner) => {
 socket.on('opponentLeft', () => {
     statusDiv.textContent = 'Your opponent has left the room.';
     boardDiv.style.pointerEvents = 'none';
-    playAgainButton.style.display = 'none'; // No one to play again with
+    playAgainButton.style.display = 'none';
 });
 
 socket.on('error', (message) => {
