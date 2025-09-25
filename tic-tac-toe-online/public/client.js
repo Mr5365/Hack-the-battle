@@ -1,4 +1,3 @@
-// client.js
 const socket = io();
 
 const lobbyDiv = document.getElementById('lobby');
@@ -44,6 +43,12 @@ socket.on('gameStart', ({ players, currentPlayer, roomCode }) => {
     const me = players.find(p => p.id === socket.id);
     mySymbol = me.symbol;
     
+    // Reset board for "Play Again"
+    cells.forEach(cell => {
+        cell.textContent = '';
+        cell.className = 'cell';
+    });
+
     statusDiv.textContent = `You are Player ${mySymbol}.`;
     updateTurnStatus(currentPlayer);
     boardDiv.style.pointerEvents = 'auto';
@@ -92,7 +97,6 @@ function updateTurnStatus(currentPlayer) {
 
 cells.forEach(cell => {
     cell.addEventListener('click', () => {
-        // **THE FIX IS HERE**
         if (myTurn && cell.textContent.trim() === '') {
             socket.emit('makeMove', { index: cell.dataset.index, roomCode: currentRoom });
         }

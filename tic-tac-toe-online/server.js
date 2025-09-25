@@ -1,4 +1,3 @@
-// server.js
 const express = require('express');
 const http = require('http');
 const socketIo = require('socket.io');
@@ -11,14 +10,13 @@ const PORT = 3000;
 
 app.use(express.static('public'));
 
-// This object will store all active game rooms
 const rooms = {};
 
 function checkWinner(board) {
     const winConditions = [
-        [0, 1, 2], [3, 4, 5], [6, 7, 8],
-        [0, 3, 6], [1, 4, 7], [2, 5, 8],
-        [0, 4, 8], [2, 4, 6]
+        [0, 1, 2], [3, 4, 5], [6, 7, 8], // rows
+        [0, 3, 6], [1, 4, 7], [2, 5, 8], // columns
+        [0, 4, 8], [2, 4, 6]             // diagonals
     ];
     for (let condition of winConditions) {
         const [a, b, c] = condition;
@@ -36,7 +34,7 @@ io.on('connection', (socket) => {
         let roomCode;
         do {
             roomCode = Math.floor(1000 + Math.random() * 9000).toString();
-        } while (rooms[roomCode]); // Ensure the room code is unique
+        } while (rooms[roomCode]);
 
         rooms[roomCode] = {
             players: [{ id: socket.id, symbol: 'X' }],
@@ -61,8 +59,7 @@ io.on('connection', (socket) => {
         socket.join(roomCode);
         console.log(`${socket.id} joined room ${roomCode}`);
 
-        // Start the game for everyone in the room
-        io.to(roomCode).emit('gameStart', { players: room.players, currentPlayer: room.currentPlayer });
+        io.to(roomCode).emit('gameStart', { players: room.players, currentPlayer: room.currentPlayer, roomCode: roomCode });
     });
 
     socket.on('makeMove', ({ index, roomCode }) => {
@@ -74,7 +71,6 @@ io.on('connection', (socket) => {
             room.board[index] = room.currentPlayer;
             const winner = checkWinner(room.board);
 
-            // Broadcast the updated board to everyone in the room
             io.to(roomCode).emit('updateBoard', { board: room.board });
 
             if (winner) {
@@ -91,7 +87,7 @@ io.on('connection', (socket) => {
         if (room) {
             room.board = Array(9).fill(null);
             room.currentPlayer = 'X';
-            io.to(roomCode).emit('gameStart', { players: room.players, currentPlayer: room.currentPlayer });
+            io.to(roomCode).emit('gameStart', { players: room.players, currentPlayer: room.currentPlayer, roomCode: roomCode });
         }
     });
 
@@ -101,9 +97,7 @@ io.on('connection', (socket) => {
             const room = rooms[roomCode];
             const playerIndex = room.players.findIndex(p => p.id === socket.id);
             if (playerIndex !== -1) {
-                // Notify the other player in the room
                 io.to(roomCode).emit('opponentLeft');
-                // Clean up the empty room
                 delete rooms[roomCode];
                 console.log(`Room ${roomCode} has been closed.`);
                 break;
