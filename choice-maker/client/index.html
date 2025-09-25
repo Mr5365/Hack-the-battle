@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Survivor Vote</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div id="game">
+    <h1>Survivor Vote</h1>
+    <div id="lobby">
+      <button id="createGameBtn">Create Game</button>
+      <input type="text" id="gameIdInput" placeholder="Enter Game ID">
+      <button id="joinGameBtn">Join Game</button>
+    </div>
+    <div id="gameState">
+      <h2>Players</h2>
+      <ul id="playersList"></ul>
+      <button id="startVoteBtn">Start Vote</button>
+      <div id="vote">
+        <h3>Vote to Eliminate</h3>
+        <ul id="voteList"></ul>
+      </div>
+    </div>
+  </div>
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
